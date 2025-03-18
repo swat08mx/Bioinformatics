@@ -26,6 +26,7 @@ qiime tools import \
 echo "Import done"
 
 ## summarize the demultiplexed file
+## check if your file is multiplxed or not
 
 qiime demux summarize \
     --i-data paired-end-demux.qza \
