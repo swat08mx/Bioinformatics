@@ -6,3 +6,5 @@ pip install num2words
 ```
 # Metagenomics.sh
 Metagenomics.sh is a metagenomics pipeline made out of qiime2 which has a lot of cutomizations that can be enabled and a lot of tools to choose from, like the denoisers or phylogenetic tree creation. This pipeline is still under development, with further improvements being done to provide customized plots based out of R and more downstream analysis for better understanding of the data.
+# test.nf and wes.sh
+These are the same pipelines in two different implementation for the WES data processing, made according to the GATK best practices and some more additonal analysis preseent in the bash file.
