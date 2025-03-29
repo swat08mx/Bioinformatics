@@ -2,6 +2,10 @@ import requests
 import numpy as np
 from tqdm import tqdm
 import pandas as pd
+from itertools import combinations
+from scipy.stats import mannwhitneyu
+from num2words import num2words
+from scipy import stats
 
 def fetch_ensembl_id(gene_name):
     url = f"https://rest.ensembl.org/lookup/symbol/homo_sapiens/{gene_name}?content-type=application/json"
@@ -17,15 +21,19 @@ def fetch_ensembl_id(gene_name):
         print(f"Failed to retrieve Ensembl ID for {gene_name}. Status code: {response.status_code}")
         return None
 
+#genes = pd.read_csv("/content/drive/MyDrive/final_genes.csv")
+
 selected_genes=[]
-sfari = pd.read_csv("/content/SFARI.csv")
-genes=sfari['gene-symbol'].to_list()
+sfari = pd.read_csv("/content/drive/MyDrive/deletion_genes_final_t2.5.csv")
+genes=sfari['genes'].to_list()
+genes=['ABCA2']
 for gene in tqdm(genes):
   print(f"Currently processing {gene}")
+#  gene_name = 'GRIN2A'
   result = fetch_ensembl_id(gene)
+  # GRIN2A
   gene_id = result
   url = f"https://rest.ensembl.org/overlap/id/{gene_id}?feature=exon"
-  import pandas as pd
   response = requests.get(url, headers={"Content-Type": "application/json"})
   start=[]
   end=[]
@@ -60,15 +68,15 @@ for gene in tqdm(genes):
             selected_start.append(data['start'][i])
             selected_end.append(data['end'][i])
 #            print(f"Inside overlap is {overlap_pc}")
-        elif exon['start'][j]>= data['start'][i] and exon['end'][j]>= data['end'][i]:
-          length_exon_inside = data['end'][i] - exon['start'][j]
-          length_probe = data['end'][i] - data['start'][i]
-          overlap_pc = (length_exon_inside/length_probe) * 100
-#          print(f"Inside truncated overlap on the right side is {overlap_pc}")
-        elif exon['start'][j]<= data['start'][i] and exon['end'][j]<= data['end'][i]:
-          length_exon_inside = exon['end'][j] - data['start'][i]
-          length_probe = data['end'][i] - data['start'][i]
-          overlap_pc = (length_exon_inside/length_probe) * 100
+#         elif exon['start'][j]>= data['start'][i] and exon['end'][j]>= data['end'][i]:
+#           length_exon_inside = data['end'][i] - exon['start'][j]
+#           length_probe = data['end'][i] - data['start'][i]
+#           overlap_pc = (length_exon_inside/length_probe) * 100
+# #          print(f"Inside truncated overlap on the right side is {overlap_pc}")
+#         elif exon['start'][j]<= data['start'][i] and exon['end'][j]<= data['end'][i]:
+#           length_exon_inside = exon['end'][j] - data['start'][i]
+#           length_probe = data['end'][i] - data['start'][i]
+#           overlap_pc = (length_exon_inside/length_probe) * 100
 #          print(f"Inside truncated overlap on the left is {overlap_pc}")
 #        elif exon['start'][j]<= data['start'][i] and exon['end'][j]>= data['end'][i]:
 #          print(f"Overlap is 100%")
@@ -119,7 +127,6 @@ for gene in tqdm(genes):
       plt.boxplot(final_log2)
       plt.title(f"{label} for {gene} gene")
       plt.show()
-    from num2words import num2words
     temp =[]
     for i in range(len(final_log2.columns)):
       temp.append(num2words(i+1))
@@ -166,9 +173,6 @@ for gene in tqdm(genes):
   for i in range(len(final.columns)):
     index.append(i+1)
   final.columns=index
-
-  from itertools import combinations
-  from scipy.stats import mannwhitneyu
   grp=[]
   groups = list(final.keys())
   for group1, group2 in combinations(groups, 2):
@@ -213,8 +217,27 @@ for gene in tqdm(genes):
   # result_depth = std_dev(fixed_depth, "depth")
   # print(result_depth)
 
+  def analysis(array):
+    final_log2 = pd.DataFrame(array)
+    final_log2 = final_log2.dropna(axis='columns')
+    temp =[]
+    for i in range(len(final_log2.columns)):
+      temp.append(num2words(i+1))
+    final_log2.columns = temp
+    avg = []
+    for cols in final_log2.columns:
+      avg.append(np.median(np.array(final_log2[cols].to_list())))
+    bins = []
+    for i in range(len(avg)):
+      bins.append(num2words(i+1))
+    temp = {'Bins':bins, 'values':avg}
+    temp = pd.DataFrame(temp)
+    sorted = list(map(float, temp['values']))
+    sorted.sort()
+    return sorted
+  res = analysis(fixed_log2)
+  print(res)
   ## z score
-  from scipy import stats
   z_score = stats.zscore(final, axis=1)
   try:
     for cols in list(z_score.columns):
@@ -228,3 +251,34 @@ for gene in tqdm(genes):
         print(f"New gene added, The current length of the selection is: {len(selected_genes)}")
   except:
     continue
+  ## manual work automated to some extent
+  array=fixed_log2
+  final_log2 = pd.DataFrame(array)
+  final_log2 = final_log2.dropna(axis='columns')
+  temp =[]
+  for i in range(len(final_log2.columns)):
+    temp.append(num2words(i+1))
+  final_log2.columns = temp
+  avg = []
+  for cols in final_log2.columns:
+    avg.append(np.median(np.array(final_log2[cols].to_list())))
+  avg = list(map(float, avg))
+  bins = []
+  for i in range(len(avg)):
+    bins.append(num2words(i+1))
+  temp = pd.DataFrame(bins, columns=['Bins'])
+  temp['values']=avg
+  sorted = temp['values'].to_list()
+  z_score = stats.zscore(sorted)
+  z_score = list(map(float, z_score))
+  bin_pos=[]
+  bin_neg=[]
+  for i in range(len(z_score)):
+    if z_score[i] >= 1.50:
+      bin_pos.append(i+1)
+    elif z_score[i] <= -1.50:
+      bin_neg.append(i+1)
+  if len(bin_pos)>len(bin_neg):
+    print(f"The positive segment bins are: {bin_pos}")
+  else:
+    print(f"The negative segment bins are: {bin_neg}")
