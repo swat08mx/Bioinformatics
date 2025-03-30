@@ -24,9 +24,9 @@ def fetch_ensembl_id(gene_name):
 #genes = pd.read_csv("/content/drive/MyDrive/final_genes.csv")
 
 selected_genes=[]
-sfari = pd.read_csv("/content/drive/MyDrive/deletion_genes_final_t2.5.csv")
+sfari = pd.read_csv("/content/drive/MyDrive/amplification_genes_final_t2.5.csv")
 genes=sfari['genes'].to_list()
-genes=['ABCA2']
+genes=['DYNC1H1']
 for gene in tqdm(genes):
   print(f"Currently processing {gene}")
 #  gene_name = 'GRIN2A'
@@ -248,7 +248,7 @@ for gene in tqdm(genes):
         print(dat)
         if gene not in selected_genes:
           selected_genes.append(gene)
-        print(f"New gene added, The current length of the selection is: {len(selected_genes)}")
+          print(f"New gene added, The current length of the selection is: {len(selected_genes)}")
   except:
     continue
   ## manual work automated to some extent
@@ -256,6 +256,7 @@ for gene in tqdm(genes):
   final_log2 = pd.DataFrame(array)
   final_log2 = final_log2.dropna(axis='columns')
   temp =[]
+  sd = np.std(final_log2, axis=0)
   for i in range(len(final_log2.columns)):
     temp.append(num2words(i+1))
   final_log2.columns = temp
@@ -269,16 +270,18 @@ for gene in tqdm(genes):
   temp = pd.DataFrame(bins, columns=['Bins'])
   temp['values']=avg
   sorted = temp['values'].to_list()
-  z_score = stats.zscore(sorted)
-  z_score = list(map(float, z_score))
+  z_score_log2 = stats.zscore(sorted)
+  z_score_log2 = list(map(float, z_score_log2))
+  print(z_score_log2)
+  z_score_std  = stats.zscore(sd).to_list()
+  print(z_score_std)
+
   bin_pos=[]
   bin_neg=[]
-  for i in range(len(z_score)):
-    if z_score[i] >= 1.50:
+  for i in range(len(z_score_log2)):
+    if z_score_log2[i] >= np.quantile(z_score_log2, .40) and z_score_std[i]<=np.quantile(z_score_std, .50):
       bin_pos.append(i+1)
-    elif z_score[i] <= -1.50:
+    elif z_score_log2[i] <= np.quantile(z_score_log2, .40) and z_score_std[i]<=np.quantile(z_score_std, .50):
       bin_neg.append(i+1)
-  if len(bin_pos)>len(bin_neg):
-    print(f"The positive segment bins are: {bin_pos}")
-  else:
-    print(f"The negative segment bins are: {bin_neg}")
+  print(f"The positive segment bins are: {bin_pos}")
+  print(f"The negative segment bins are: {bin_neg}")
