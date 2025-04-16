@@ -24,9 +24,11 @@ def fetch_ensembl_id(gene_name):
 #genes = pd.read_csv("/content/drive/MyDrive/final_genes.csv")
 
 selected_genes=[]
-sfari = pd.read_csv("/content/drive/MyDrive/amplification_genes_final_t2.5.csv")
-genes=sfari['genes'].to_list()
-genes=['DYNC1H1']
+# sfari = pd.read_csv("SFARI.csv")
+# genes=sfari['gene-symbol'].to_list()
+#genes = ["DNAH17","DOCK1","DOCK8","SYNE1","CSMD1","ABCA13","LAMA1","MYO7A","INTS1","NF1","NOTCH1","NRCAM","PCDH15","PCM1","PLCB1","TTN"]
+#genes = ["TTN", "WDFY3", "NUP155", "FBN1", "CNOT1", "ABCA13", "MYCBP2", "PRKDC", "HYDIN", "HERC1"]
+genes=['TTN']
 for gene in tqdm(genes):
   print(f"Currently processing {gene}")
 #  gene_name = 'GRIN2A'
@@ -50,7 +52,7 @@ for gene in tqdm(genes):
   exon = pd.DataFrame(dicto)
   fixed_log2=[]
   fixed_depth=[]
-  names = ["003", "004", "009", "010", "013", "022", "030", "034", "036", "044", "61", "78", "80", "81", "87", "90", "92", "105"]
+  names = ["105", "004", "78", "010", "013", "022", "81", "034", "036", "044", "61", "009", "80", "030", "87", "90", "92", "003"]
   for name in names:
     data = pd.read_csv(f"/content/drive/MyDrive/{name}-c.bqsr.cnr", sep="\t")
     data=data.loc[(data['gene']==gene)]
@@ -173,12 +175,20 @@ for gene in tqdm(genes):
   for i in range(len(final.columns)):
     index.append(i+1)
   final.columns=index
+  import seaborn as sns
+  import matplotlib.pyplot as plt
+  from matplotlib.colors import LinearSegmentedColormap
+  fig, ax = plt.subplots(figsize=(12, 8))
+  colors=['blue', 'white', 'red']
+  custom_cmap = LinearSegmentedColormap.from_list('custom_cmap', colors)
+  sns.heatmap(final, cmap=custom_cmap, center=0.0, robust=True)
+  plt.show()
   grp=[]
   groups = list(final.keys())
   for group1, group2 in combinations(groups, 2):
       stat, p = mannwhitneyu(final[group1], final[group2], alternative='two-sided')
       if p <= 0.05:
-        print(f"Comparison {group1} vs {group2}: U={stat}, p={p}, the result is significant in the {gene} gene.")
+#        print(f"Comparison {group1} vs {group2}: U={stat}, p={p}, the result is significant in the {gene} gene.")
         grp.append(group1)
         grp.append(group2)
   counts={}
@@ -187,7 +197,29 @@ for gene in tqdm(genes):
       counts[grp[i]]=1
     else:
       counts[grp[i]]=counts[grp[i]]+1
-  print(counts)
+  def bubble_sort_dict_by_values(dictionary):
+    # Convert dictionary items to list of tuples
+    items_list = list(dictionary.items())
+
+    # Implement bubble sort
+    n = len(items_list)
+    for i in range(n):
+        for j in range(0, n - i - 1):
+            if items_list[j][1] > items_list[j + 1][1]:
+                items_list[j], items_list[j + 1] = items_list[j + 1], items_list[j]
+
+    # Convert sorted list back to dictionary
+    sorted_dict = dict(items_list)
+
+    return sorted_dict
+
+  sorted_dict = bubble_sort_dict_by_values(counts)
+  print(sorted_dict)
+  names = list(sorted_dict.keys())
+  values = list(sorted_dict.values())
+  plt.figure(figsize=(12, 6))
+  plt.bar(range(len(sorted_dict)), values, tick_label=names)
+  plt.show()
   ### standard deviation
   def std_dev(data, tag):
     final = pd.DataFrame(data)
@@ -239,9 +271,23 @@ for gene in tqdm(genes):
   print(res)
   ## z score
   z_score = stats.zscore(final, axis=1)
+  print("Deletion")
   try:
     for cols in list(z_score.columns):
-      dat = z_score.loc[(z_score[cols]>=2.50)]
+      dat = z_score.loc[(z_score[cols]<=-3.50)]
+      if dat.empty:
+        continue
+      else:
+        print(dat)
+        if gene not in selected_genes:
+          selected_genes.append(gene)
+          print(f"New gene added, The current length of the selection is: {len(selected_genes)}")
+  except:
+    continue
+  print("Amplification")
+  try:
+    for cols in list(z_score.columns):
+      dat = z_score.loc[(z_score[cols]>=3.50)]
       if dat.empty:
         continue
       else:
@@ -279,9 +325,9 @@ for gene in tqdm(genes):
   bin_pos=[]
   bin_neg=[]
   for i in range(len(z_score_log2)):
-    if z_score_log2[i] >= np.quantile(z_score_log2, .40) and z_score_std[i]<=np.quantile(z_score_std, .50):
+    if z_score_log2[i] >= np.quantile(z_score_log2, .50) and z_score_std[i]<=np.quantile(z_score_std, .50):
       bin_pos.append(i+1)
-    elif z_score_log2[i] <= np.quantile(z_score_log2, .40) and z_score_std[i]<=np.quantile(z_score_std, .50):
+    elif z_score_log2[i] <= np.quantile(z_score_log2, .50) and z_score_std[i]<=np.quantile(z_score_std, .50):
       bin_neg.append(i+1)
   print(f"The positive segment bins are: {bin_pos}")
   print(f"The negative segment bins are: {bin_neg}")
